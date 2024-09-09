@@ -1,27 +1,95 @@
-# MonoWorkspace
+step1:
+For creating a mono Microfrontend app
+ng new mono-workspace --create-application-false
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 14.2.6.
+step2:
+Enter mono-workspace folder
+cd mono-workspace
 
-## Development server
+step3:
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+create application host-app with routing and styles
 
-## Code scaffolding
+ng g application host-app --routing -style=scss
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+step4:
 
-## Build
+create application host-app with routing and styles
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+ng g application mfe-app --routing -style=scss
 
-## Running unit tests
+step5:
+ We need module federation to run micrFrontend
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+ ng add @angular-architects/module-federation --project host-app --4200 
+ ng add @angular-architects/module-federation --project host-app --4200
 
-## Running end-to-end tests
+ step6:
+ check if you can run the application
+ ng s host-app 
+ ng s mef-app 
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+ step7:
 
-## Further help
+ work with host-app routing and add the routes to components which can be created specifically
+ 
+ You can create specifically using 
+ ng g c home project=host-app
+  ng g c home project=mfe-app
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+  create to-dolist module and make the changes in host-app routing to load the the to-do list module on demand
+
+   { path: 'todo-list', loadChildren: ()=>{
+    return loadRemoteModule({
+      remoteEntry: MFE_APP_URL,
+      remoteName:"mfeApp",
+      exposedModule: "./TodoListModule"
+    }).then(m => m.TodoModule).catch(err => console.log(err));
+  }}
+
+  And in the webpack confic need to make below change so the app should run t http://localhost:4300/remoteEntry.js
+
+  const ModuleFederationPlugin = require("webpack/lib/container/ModuleFederationPlugin");
+const mf = require("@angular-architects/module-federation/webpack");
+const path = require("path");
+const share = mf.share;
+
+const sharedMappings = new mf.SharedMappings();
+sharedMappings.register(
+  path.join(__dirname, '../../tsconfig.json'),
+  [/* mapped paths to share */]);
+
+module.exports = {
+  output: {
+    uniqueName: "mfeApp",
+    publicPath: "auto",
+    scriptType:"text/javascript"
+  },
+  optimization: {
+    runtimeChunk: false
+  },
+  resolve: {
+    alias: {
+      ...sharedMappings.getAliases(),
+    }
+  },
+  experiments: {
+    outputModule: true
+  },
+  plugins: [
+    new ModuleFederationPlugin({
+
+        // For remotes (please adjust)
+        name: "mfeApp",
+        filename: "remoteEntry.js",
+        exposes: {
+            './TodoListModule': './projects/mfe-app/src/app/todo-list/todo-list.module.ts',
+        },
+
+        // For hosts (please adjust)
+        remotes: {
+            "mfeApp": "mfeApp@http://localhost:4200/remoteEntry.js",
+
+        },
+
+
